@@ -97,21 +97,25 @@ if __name__ == "__main__":
     loss_0, acc_0 = model.evaluate(valid)
     print(f"loss {loss_0}, acc {acc_0}")
 
-    checkpoint = callbacks.ModelCheckpoint(
+
+    cbks = []
+    cbks.append(callbacks.ModelCheckpoint(
         "best_model",
         monitor="val_accuracy",
         mode="max",
         verbose=0,
         save_best_only=True,
         save_weights_only=True,
-    )
-    early_stopping = callbacks.EarlyStopping(monitor="val_accuracy", patience=args.patience, mode="max", restore_best_weights=True)
+    ))
+    cbks.append(TqdmCallback())
+    if args.patience >= 0:
+      cbks.append(callbacks.EarlyStopping(monitor="val_accuracy", patience=args.patience, mode="max", restore_best_weights=True))
     
     history = model.fit(
         train,
         validation_data=valid,
         epochs=args.epochs,
-        callbacks=[checkpoint, TqdmCallback(), early_stopping],
+        callbacks=cbks,
         verbose=0,
     )
 
