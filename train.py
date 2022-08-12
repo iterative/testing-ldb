@@ -1,53 +1,71 @@
+"""Usage:
+  train.py [options]
+
+Options:
+  -e NUM, --epochs NUM  : Number of epochs [default: 100:int]
+  -p NUM, --patience NUM  : Early stopping epochs [default: 20:int]
+  -s NUM, --seed NUM  : Random seed [default: 123:int]
+"""
 # You can try fixing incorrect labels, adding data for side case tuning, apply
 # data augmentation techniques, or use any other method to improve the data.
 # You may also find it helpful to take a look at the training script to get a
 # better sense of the preprocessing and model (these are held fixed). The script
 # will resize all images to (256, 256) and run them through a cut off ResNet50
 
-import tensorflow as tf
-from tensorflow import keras
-from keras import callbacks
-import numpy as np
+import os
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 import json
 import sys
 
+import numpy as np
+import tensorflow as tf
+from argopt import argopt
+from keras import callbacks
+from tensorflow import keras
+from tqdm.keras import TqdmCallback
+
 directory = "./data"
-user_data = directory 
-test_data = directory + "/labelbook" # this can be the labelbook, or any other test set you create
+user_data = directory
+test_data = (
+    directory + "/labelbook"
+)  # this can be the labelbook, or any other test set you create
 
 ### DO NOT MODIFY BELOW THIS LINE, THIS IS THE FIXED MODEL ###
 batch_size = 8
-tf.random.set_seed(123)
 
 
 if __name__ == "__main__":
+    args = argopt(__doc__).parse_args()
+    tf.random.set_seed(args.seed)
     train = tf.keras.preprocessing.image_dataset_from_directory(
-        user_data + '/train',
+        user_data + "/train",
         labels="inferred",
         label_mode="categorical",
         class_names=["cat", "dog", "muffin", "croissant"],
         shuffle=True,
-        seed=123,
+        seed=args.seed,
         batch_size=batch_size,
         image_size=(256, 256),
-        crop_to_aspect_ratio=True
+        crop_to_aspect_ratio=True,
     )
 
     valid = tf.keras.preprocessing.image_dataset_from_directory(
-        user_data + '/val',
+        user_data + "/val",
         labels="inferred",
         label_mode="categorical",
         class_names=["cat", "dog", "muffin", "croissant"],
         shuffle=True,
-        seed=123,
+        seed=args.seed,
         batch_size=batch_size,
         image_size=(256, 256),
     )
 
     total_length = ((train.cardinality() + valid.cardinality()) * batch_size).numpy()
     if total_length > 10_000:
-        print(f"Dataset size larger than 10,000. Got {total_length} examples")
-        sys.exit()
+        raise IndexError(
+            f"Dataset size larger than 10,000. Got {total_length} examples"
+        )
 
     test = tf.keras.preprocessing.image_dataset_from_directory(
         test_data,
@@ -55,7 +73,7 @@ if __name__ == "__main__":
         label_mode="categorical",
         class_names=["cat", "dog", "muffin", "croissant"],
         shuffle=False,
-        seed=123,
+        seed=args.seed,
         batch_size=batch_size,
         image_size=(256, 256),
     )
@@ -73,7 +91,7 @@ if __name__ == "__main__":
     x = tf.keras.applications.resnet.preprocess_input(inputs)
     x = base_model(x)
     x = tf.keras.layers.GlobalAveragePooling2D()(x)
-    x = tf.keras.layers.Dense(4, activation='sigmoid')(x)
+    x = tf.keras.layers.Dense(4, activation="sigmoid")(x)
     model = tf.keras.Model(inputs, x)
 
     model.compile(
@@ -85,20 +103,34 @@ if __name__ == "__main__":
     loss_0, acc_0 = model.evaluate(valid)
     print(f"loss {loss_0}, acc {acc_0}")
 
-    checkpoint = tf.keras.callbacks.ModelCheckpoint(
-        "best_model",
-        monitor="val_accuracy",
-        mode="max",
-        verbose=1,
-        save_best_only=True,
-        save_weights_only=True,
+    cbks = []
+    cbks.append(
+        callbacks.ModelCheckpoint(
+            "best_model",
+            monitor="val_accuracy",
+            mode="max",
+            verbose=0,
+            save_best_only=True,
+            save_weights_only=True,
+        )
     )
-    
+    cbks.append(TqdmCallback())
+    if args.patience >= 0:
+        cbks.append(
+            callbacks.EarlyStopping(
+                monitor="val_accuracy",
+                patience=args.patience,
+                mode="max",
+                restore_best_weights=True,
+            )
+        )
+
     history = model.fit(
         train,
         validation_data=valid,
-        epochs=100,
-        callbacks=[checkpoint],
+        epochs=args.epochs,
+        callbacks=cbks,
+        verbose=0,
     )
 
     model.load_weights("best_model")
