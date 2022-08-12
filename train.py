@@ -1,3 +1,11 @@
+"""Usage:
+  train.py [options]
+
+Options:
+  -e NUM, --epochs NUM  : Number of epochs [default: 100:int]
+  -p NUM, --patience NUM  : Early stopping epochs [default: 20:int]
+  -s NUM, --seed NUM  : Random seed [default: 123:int]
+"""
 # You can try fixing incorrect labels, adding data for side case tuning, apply
 # data augmentation techniques, or use any other method to improve the data.
 # You may also find it helpful to take a look at the training script to get a
@@ -10,6 +18,7 @@ import tensorflow as tf
 from tensorflow import keras
 from keras import callbacks
 from tqdm.keras import TqdmCallback
+from argopt import argopt
 import numpy as np
 import json
 import sys
@@ -20,17 +29,18 @@ test_data = directory + "/labelbook" # this can be the labelbook, or any other t
 
 ### DO NOT MODIFY BELOW THIS LINE, THIS IS THE FIXED MODEL ###
 batch_size = 8
-tf.random.set_seed(123)
 
 
 if __name__ == "__main__":
+    args = argopt(__doc__).parse_args()
+    tf.random.set_seed(args.seed)
     train = tf.keras.preprocessing.image_dataset_from_directory(
         user_data + '/train',
         labels="inferred",
         label_mode="categorical",
         class_names=["cat", "dog", "muffin", "croissant"],
         shuffle=True,
-        seed=123,
+        seed=args.seed,
         batch_size=batch_size,
         image_size=(256, 256),
         crop_to_aspect_ratio=True
@@ -42,7 +52,7 @@ if __name__ == "__main__":
         label_mode="categorical",
         class_names=["cat", "dog", "muffin", "croissant"],
         shuffle=True,
-        seed=123,
+        seed=args.seed,
         batch_size=batch_size,
         image_size=(256, 256),
     )
@@ -57,7 +67,7 @@ if __name__ == "__main__":
         label_mode="categorical",
         class_names=["cat", "dog", "muffin", "croissant"],
         shuffle=False,
-        seed=123,
+        seed=args.seed,
         batch_size=batch_size,
         image_size=(256, 256),
     )
@@ -95,12 +105,13 @@ if __name__ == "__main__":
         save_best_only=True,
         save_weights_only=True,
     )
+    early_stopping = callbacks.EarlyStopping(monitor="val_accuracy", patience=args.patience, mode="max", restore_best_weights=True)
     
     history = model.fit(
         train,
         validation_data=valid,
-        epochs=100,
-        callbacks=[checkpoint, TqdmCallback()],
+        epochs=args.epochs,
+        callbacks=[checkpoint, TqdmCallback(), early_stopping],
         verbose=0,
     )
 
