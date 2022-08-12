@@ -9,6 +9,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 import tensorflow as tf
 from tensorflow import keras
 from keras import callbacks
+from tqdm.keras import TqdmCallback
 import numpy as np
 import json
 import sys
@@ -48,8 +49,7 @@ if __name__ == "__main__":
 
     total_length = ((train.cardinality() + valid.cardinality()) * batch_size).numpy()
     if total_length > 10_000:
-        print(f"Dataset size larger than 10,000. Got {total_length} examples")
-        sys.exit()
+        raise IndexError(f"Dataset size larger than 10,000. Got {total_length} examples")
 
     test = tf.keras.preprocessing.image_dataset_from_directory(
         test_data,
@@ -87,11 +87,11 @@ if __name__ == "__main__":
     loss_0, acc_0 = model.evaluate(valid)
     print(f"loss {loss_0}, acc {acc_0}")
 
-    checkpoint = tf.keras.callbacks.ModelCheckpoint(
+    checkpoint = callbacks.ModelCheckpoint(
         "best_model",
         monitor="val_accuracy",
         mode="max",
-        verbose=1,
+        verbose=0,
         save_best_only=True,
         save_weights_only=True,
     )
@@ -100,7 +100,8 @@ if __name__ == "__main__":
         train,
         validation_data=valid,
         epochs=100,
-        callbacks=[checkpoint],
+        callbacks=[checkpoint, TqdmCallback()],
+        verbose=0,
     )
 
     model.load_weights("best_model")
