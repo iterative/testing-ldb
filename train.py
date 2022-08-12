@@ -4,6 +4,8 @@
 # better sense of the preprocessing and model (these are held fixed). The script
 # will resize all images to (256, 256) and run them through a cut off ResNet50
 
+import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 import tensorflow as tf
 from tensorflow import keras
 from keras import callbacks

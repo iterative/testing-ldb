@@ -1,11 +1,12 @@
 # This inference script prints JSON labels for object in test directory
 
+import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 import tensorflow as tf
 from tensorflow import keras
 import numpy as np
 import json
 import sys
-import os
 import hashlib
 import json
 
